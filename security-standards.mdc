@@ -1,0 +1,141 @@
+---
+description: Standards sécurité - OWASP Top 10, Zero Trust, bonnes pratiques
+alwaysApply: true
+---
+
+# Standards Sécurité
+
+## Principes Zero Trust
+
+- **Never trust, always verify** : valider chaque requête
+- **Least privilege** : permissions minimales nécessaires
+- **Assume breach** : designer pour limiter l'impact
+
+## OWASP Top 10 - Checklist
+
+### A01 - Broken Access Control
+
+```python
+# ❌ VULNÉRABLE - pas de vérification
+@app.get("/user/{user_id}/profile")
+def get_profile(user_id: str):
+    return db.get_user(user_id)
+
+# ✅ SÉCURISÉ - vérification d'accès
+@app.get("/user/{user_id}/profile")
+def get_profile(user_id: str, current_user: User = Depends(get_current_user)):
+    if not current_user.can_access(user_id):
+        raise HTTPException(403, "Access denied")
+    return db.get_user(user_id)
+```
+
+### A02 - Cryptographic Failures
+
+```python
+# ❌ VULNÉRABLE
+password_hash = hashlib.md5(password.encode()).hexdigest()
+
+# ✅ SÉCURISÉ
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["bcrypt"])
+password_hash = pwd_context.hash(password)
+```
+
+### A03 - Injection
+
+```python
+# ❌ VULNÉRABLE - SQL injection
+query = f"SELECT * FROM users WHERE id = {user_id}"
+
+# ✅ SÉCURISÉ - requête paramétrée
+query = "SELECT * FROM users WHERE id = %s"
+cursor.execute(query, (user_id,))
+
+# ✅ SÉCURISÉ - ORM
+user = await User.get(id=user_id)
+```
+
+### A07 - Authentication Failures
+
+```python
+# ✅ Tokens avec expiration courte
+access_token = create_token(user_id, expires_delta=timedelta(minutes=15))
+refresh_token = create_token(user_id, expires_delta=timedelta(days=7))
+
+# ✅ Rate limiting
+@limiter.limit("5/minute")
+async def login(credentials: LoginRequest):
+    ...
+```
+
+## Secrets - JAMAIS dans le code
+
+```python
+# ❌ INTERDIT
+API_KEY = "sk-1234567890abcdef"
+DATABASE_URL = "postgresql://user:password@host/db"
+
+# ✅ Variables d'environnement
+import os
+API_KEY = os.environ["API_KEY"]
+
+# ✅ Avec pydantic-settings
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    api_key: str
+    database_url: str
+
+    class Config:
+        env_file = ".env"
+```
+
+## Validation des inputs
+
+```python
+# ✅ Toujours valider et sanitizer
+from pydantic import BaseModel, Field, validator
+import bleach
+
+class CommentCreate(BaseModel):
+    content: str = Field(..., max_length=1000)
+
+    @validator("content")
+    def sanitize_content(cls, v: str) -> str:
+        return bleach.clean(v, strip=True)
+```
+
+## Headers de sécurité
+
+```python
+# FastAPI middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000"
+    return response
+```
+
+## Logging sécurisé
+
+```python
+# ❌ VULNÉRABLE - données sensibles dans les logs
+logger.info(f"User login: {email}, password: {password}")
+
+# ✅ SÉCURISÉ - masquer les données sensibles
+logger.info("User login attempt", extra={"email": email})
+```
+
+## Checklist avant production
+
+- [ ] Pas de secrets dans le code ou les logs
+- [ ] Authentification sur tous les endpoints sensibles
+- [ ] Validation des inputs (type, longueur, format)
+- [ ] Requêtes SQL paramétrées ou ORM
+- [ ] Rate limiting sur auth et API publiques
+- [ ] HTTPS obligatoire
+- [ ] Headers de sécurité configurés
+- [ ] Dépendances scannées (pip-audit, npm audit)

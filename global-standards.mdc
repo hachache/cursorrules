@@ -1,0 +1,74 @@
+---
+description: Standards de code globaux - qualité, maintenabilité, clarté
+alwaysApply: true
+---
+
+# Standards de Code Globaux
+
+## Principes fondamentaux
+
+### Nommage
+- Noms explicites, pas d'abréviations (sauf standards : ip, tls, uid)
+- Variables et fonctions qui expriment l'intention sans ambiguïté
+- Booléens : `isActive`, `hasPermission`, `canEdit`
+- Actions : `fetchUser`, `createOrder`, `validateInput`
+
+### Structure
+- Fonctions courtes, pures, une seule responsabilité
+- Pas de commentaires inutiles - si nécessaire, renommer ou refactorer
+- Code lisible de haut en bas, zéro friction cognitive
+- **Early returns** : éviter le nesting profond
+
+```
+# ❌ MAUVAIS
+if user:
+    if user.active:
+        if user.has_permission:
+            do_something()
+
+# ✅ BON
+if not user: return
+if not user.active: return
+if not user.has_permission: return
+do_something()
+```
+
+### Gestion des erreurs
+- Erreurs explicites et contextuelles, jamais silencieuses
+- Toujours propager le contexte d'erreur
+- Fail fast : valider les inputs au plus tôt
+- Ne jamais ignorer les erreurs avec des catch vides
+
+## Architecture
+
+### Séparation des responsabilités
+- Pas de logique métier dans les vues/handlers
+- Effets de bord aux frontières, logique pure au centre
+- Injection de dépendances, pas d'état global
+
+### Principes SOLID (simplifiés)
+- **S**ingle Responsibility : une classe = une raison de changer
+- **O**pen/Closed : ouvert à l'extension, fermé à la modification
+- **D**ependency Inversion : dépendre d'abstractions, pas d'implémentations
+
+### Design patterns à privilégier
+- Repository pattern pour l'accès aux données
+- Service layer pour la logique métier
+- Factory pour la création d'objets complexes
+- Strategy pour les algorithmes interchangeables
+
+## Avant d'implémenter
+
+1. **Analyser l'existant** : identifier les patterns en place
+2. **Respecter les conventions** : suivre le style du projet
+3. **Planifier** : découper en tâches claires
+4. **Tester** : écrire les tests en parallèle du code
+
+## Checklist qualité
+
+- [ ] Noms explicites et cohérents
+- [ ] Fonctions < 30 lignes
+- [ ] Pas de code dupliqué
+- [ ] Erreurs gérées explicitement
+- [ ] Tests couvrant les cas critiques
+- [ ] Pas de secrets hardcodés

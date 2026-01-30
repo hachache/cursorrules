@@ -1,0 +1,218 @@
+---
+description: Standards scripts shell - robustesse, portabilité, automation
+globs: "**/*.sh"
+alwaysApply: false
+---
+
+# Standards Shell
+
+## En-tête obligatoire
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+```
+
+## Conventions de nommage
+
+| Élément | Convention | Exemple |
+|---------|------------|---------|
+| Constantes | SCREAMING_SNAKE_CASE | `readonly MAX_RETRIES=3` |
+| Variables | lower_snake_case | `local file_path=""` |
+| Fonctions | snake_case | `validate_input()` |
+| Fichiers | kebab-case.sh | `deploy-app.sh` |
+
+## Template de script complet
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+#######################################
+# Script: deploy-app.sh
+# Description: Deploy application to target environment
+# Usage: ./deploy-app.sh [options] <environment>
+#######################################
+
+# Constants
+readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly LOG_FILE="/var/log/${SCRIPT_NAME%.sh}.log"
+
+# Default values
+VERBOSE=false
+DRY_RUN=false
+
+#######################################
+# Logging functions
+#######################################
+log_info()  { echo "[INFO]  $(date '+%Y-%m-%d %H:%M:%S') $*" | tee -a "${LOG_FILE}"; }
+log_warn()  { echo "[WARN]  $(date '+%Y-%m-%d %H:%M:%S') $*" | tee -a "${LOG_FILE}" >&2; }
+log_error() { echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') $*" | tee -a "${LOG_FILE}" >&2; }
+log_debug() { [[ "${VERBOSE}" == true ]] && echo "[DEBUG] $*" >&2 || true; }
+die()       { log_error "$*"; exit 1; }
+
+#######################################
+# Usage
+#######################################
+usage() {
+    cat << EOF
+Usage: ${SCRIPT_NAME} [options] <environment>
+
+Deploy application to specified environment.
+
+Arguments:
+    environment     Target environment (dev|staging|prod)
+
+Options:
+    -h, --help      Show this help message
+    -v, --verbose   Enable verbose output
+    -n, --dry-run   Show what would be done without executing
+
+Examples:
+    ${SCRIPT_NAME} dev
+    ${SCRIPT_NAME} --dry-run prod
+    ${SCRIPT_NAME} -v staging
+EOF
+}
+
+#######################################
+# Argument parsing
+#######################################
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -n|--dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            -*)
+                die "Unknown option: $1"
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    # Required argument
+    ENVIRONMENT="${1:?$(usage)}"
+}
+
+#######################################
+# Validation
+#######################################
+validate_environment() {
+    local env="$1"
+    case "${env}" in
+        dev|staging|prod) return 0 ;;
+        *) die "Invalid environment: ${env}. Must be dev, staging, or prod." ;;
+    esac
+}
+
+check_dependencies() {
+    local deps=("docker" "kubectl" "jq")
+    for cmd in "${deps[@]}"; do
+        command -v "${cmd}" &>/dev/null || die "Required command not found: ${cmd}"
+    done
+}
+
+#######################################
+# Cleanup on exit
+#######################################
+cleanup() {
+    local exit_code=$?
+    # Remove temp files, restore state
+    [[ -n "${TEMP_DIR:-}" ]] && rm -rf "${TEMP_DIR}"
+    exit "${exit_code}"
+}
+trap cleanup EXIT
+
+#######################################
+# Main logic
+#######################################
+deploy() {
+    local env="$1"
+    log_info "Deploying to ${env}..."
+
+    if [[ "${DRY_RUN}" == true ]]; then
+        log_info "[DRY-RUN] Would deploy to ${env}"
+        return 0
+    fi
+
+    # Actual deployment logic here
+    log_info "Deployment to ${env} completed successfully"
+}
+
+main() {
+    parse_args "$@"
+    validate_environment "${ENVIRONMENT}"
+    check_dependencies
+
+    log_info "Starting deployment process"
+    deploy "${ENVIRONMENT}"
+    log_info "Done"
+}
+
+main "$@"
+```
+
+## Bonnes pratiques
+
+```bash
+# ❌ MAUVAIS
+cd $dir
+rm -rf *
+if [ $status == "ok" ]; then
+for f in $(ls *.txt); do
+
+# ✅ BON
+cd "${dir}" || exit 1
+find . -maxdepth 1 -type f -delete
+if [[ "${status}" == "ok" ]]; then
+for f in *.txt; do
+    [[ -e "${f}" ]] || continue
+```
+
+## Gestion des fichiers temporaires
+
+```bash
+# ✅ Créer un répertoire temp sécurisé
+TEMP_DIR="$(mktemp -d)"
+trap 'rm -rf "${TEMP_DIR}"' EXIT
+
+# ✅ Fichier temporaire
+temp_file="$(mktemp)"
+trap 'rm -f "${temp_file}"' EXIT
+```
+
+## Codes de sortie
+
+| Code | Signification |
+|------|--------------|
+| 0 | Succès |
+| 1 | Erreur générale |
+| 2 | Mauvais usage / arguments |
+| 126 | Permission denied |
+| 127 | Command not found |
+| 130 | Ctrl+C (SIGINT) |
+
+## Checklist script production
+
+- [ ] Shebang `#!/usr/bin/env bash`
+- [ ] `set -euo pipefail` en début
+- [ ] Variables quotées `"${var}"`
+- [ ] Fonctions de logging
+- [ ] Usage/help avec `-h`
+- [ ] Validation des arguments
+- [ ] Check des dépendances
+- [ ] Trap pour cleanup
+- [ ] Codes de sortie significatifs

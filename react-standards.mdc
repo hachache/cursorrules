@@ -1,0 +1,227 @@
+---
+description: Standards React/Next.js - composants, hooks, state, performance
+globs: "**/*.{jsx,tsx}"
+alwaysApply: false
+---
+
+# Standards React / Next.js
+
+## Architecture composants
+
+### Structure projet Next.js
+
+```
+src/
+├── app/                    # App Router (Next.js 13+)
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── (routes)/
+├── components/
+│   ├── ui/                 # Composants réutilisables (Button, Card...)
+│   └── features/           # Composants métier
+├── hooks/                  # Custom hooks (useXxx)
+├── lib/                    # Utilities, API clients
+├── contexts/               # React Contexts
+├── types/                  # TypeScript types
+└── styles/                 # Global styles
+```
+
+## Composants fonctionnels
+
+```tsx
+// ✅ BON - Interface props + composant typé
+interface UserCardProps {
+  user: User;
+  onSelect?: (user: User) => void;
+  className?: string;
+}
+
+export function UserCard({ user, onSelect, className }: UserCardProps) {
+  const handleClick = useCallback(() => {
+    onSelect?.(user);
+  }, [user, onSelect]);
+
+  return (
+    <div className={cn("rounded-lg p-4", className)} onClick={handleClick}>
+      <h3>{user.name}</h3>
+      <p>{user.email}</p>
+    </div>
+  );
+}
+```
+
+## Hooks patterns
+
+### Custom hooks
+
+```tsx
+// ✅ Extraction logique réutilisable
+function useUser(userId: string) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchUser() {
+      try {
+        setIsLoading(true);
+        const data = await api.getUser(userId);
+        if (!cancelled) setUser(data);
+      } catch (err) {
+        if (!cancelled) setError(err as Error);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    fetchUser();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  return { user, isLoading, error };
+}
+```
+
+### React Query (recommandé)
+
+```tsx
+// ✅ Server state avec React Query
+function useUser(userId: string) {
+  return useQuery({
+    queryKey: ['user', userId],
+    queryFn: () => api.getUser(userId),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+// Mutation
+function useUpdateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: api.updateUser,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['user', data.id] });
+    },
+  });
+}
+```
+
+## State management
+
+```tsx
+// ✅ Local state - useState
+const [count, setCount] = useState(0);
+
+// ✅ Derived state - useMemo
+const filteredItems = useMemo(
+  () => items.filter(item => item.active),
+  [items]
+);
+
+// ✅ Complex local state - useReducer
+const [state, dispatch] = useReducer(reducer, initialState);
+
+// ✅ Global state - Context ou Zustand
+// Context pour état simple partagé
+// Zustand/Redux pour état complexe
+```
+
+## Performance
+
+### Memoization
+
+```tsx
+// ✅ React.memo pour composants purs
+const ExpensiveList = memo(function ExpensiveList({ items }: Props) {
+  return items.map(item => <Item key={item.id} {...item} />);
+});
+
+// ✅ useMemo pour calculs coûteux
+const sortedData = useMemo(
+  () => data.sort((a, b) => a.name.localeCompare(b.name)),
+  [data]
+);
+
+// ✅ useCallback pour fonctions passées en props
+const handleClick = useCallback((id: string) => {
+  setSelected(id);
+}, []);
+```
+
+### Code splitting
+
+```tsx
+// ✅ Lazy loading composants
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+
+function App() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <Dashboard />
+    </Suspense>
+  );
+}
+
+// ✅ Next.js dynamic imports
+const DynamicChart = dynamic(() => import('./Chart'), {
+  loading: () => <Skeleton />,
+  ssr: false,
+});
+```
+
+## Next.js spécifique
+
+### Server vs Client Components
+
+```tsx
+// Server Component (default) - pas de "use client"
+async function ProductPage({ params }: Props) {
+  const product = await getProduct(params.id); // Fetch côté serveur
+  return <ProductDetails product={product} />;
+}
+
+// Client Component - interactivité
+"use client";
+
+function AddToCartButton({ productId }: Props) {
+  const [isLoading, setIsLoading] = useState(false);
+  // ... handlers
+}
+```
+
+### Data fetching Next.js
+
+```tsx
+// ✅ Server Component avec fetch
+async function ProductList() {
+  const products = await fetch('https://api.example.com/products', {
+    next: { revalidate: 3600 } // ISR: revalider toutes les heures
+  }).then(res => res.json());
+
+  return <ul>{products.map(p => <li key={p.id}>{p.name}</li>)}</ul>;
+}
+```
+
+## Conventions nommage
+
+| Élément | Convention | Exemple |
+|---------|------------|---------|
+| Composants | PascalCase | `UserCard.tsx` |
+| Hooks | camelCase + use | `useAuth.ts` |
+| Handlers | handle + Action | `handleSubmit` |
+| Booléens | is/has/can | `isLoading`, `hasError` |
+| Async | fetch/create/update | `fetchUsers` |
+
+## Checklist React
+
+- [ ] Props typées avec interface
+- [ ] Hooks extraits si > 10 lignes de logique
+- [ ] useCallback/useMemo où pertinent
+- [ ] Keys stables sur les listes
+- [ ] Cleanup dans useEffect
+- [ ] Error boundaries pour erreurs
+- [ ] Loading states gérés
+- [ ] Server Components par défaut (Next.js)

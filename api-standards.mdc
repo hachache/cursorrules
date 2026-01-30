@@ -1,0 +1,174 @@
+---
+description: Standards API REST - design, versioning, erreurs, documentation
+globs: "**/api/**/*.py,**/routes/**/*.py,**/controllers/**/*.py"
+alwaysApply: false
+---
+
+# Standards API REST
+
+## Principes de design
+
+- **Contract-first** : définir l'API avant l'implémentation
+- **Resource-oriented** : URLs basées sur les ressources, pas les actions
+- **Stateless** : chaque requête contient toute l'information nécessaire
+- **Consistent** : mêmes patterns partout
+
+## Conventions URL
+
+```
+# ✅ BON - ressources au pluriel, hiérarchie claire
+GET    /api/v1/users              # Liste
+GET    /api/v1/users/{id}         # Détail
+POST   /api/v1/users              # Création
+PUT    /api/v1/users/{id}         # Mise à jour complète
+PATCH  /api/v1/users/{id}         # Mise à jour partielle
+DELETE /api/v1/users/{id}         # Suppression
+
+# Relations
+GET    /api/v1/users/{id}/orders  # Commandes d'un user
+
+# ❌ MAUVAIS
+GET    /api/v1/getUsers
+POST   /api/v1/createUser
+GET    /api/v1/user/123/getOrders
+```
+
+## Codes HTTP
+
+| Code | Usage |
+|------|-------|
+| 200 | OK - GET, PUT, PATCH réussi |
+| 201 | Created - POST réussi |
+| 204 | No Content - DELETE réussi |
+| 400 | Bad Request - validation échouée |
+| 401 | Unauthorized - non authentifié |
+| 403 | Forbidden - pas les droits |
+| 404 | Not Found - ressource inexistante |
+| 409 | Conflict - conflit (ex: email déjà pris) |
+| 422 | Unprocessable Entity - erreur métier |
+| 500 | Internal Error - erreur serveur |
+
+## Format des erreurs
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid request data",
+    "details": [
+      {
+        "field": "email",
+        "message": "Invalid email format"
+      }
+    ],
+    "request_id": "req_abc123"
+  }
+}
+```
+
+```python
+# Implémentation FastAPI
+class APIError(BaseModel):
+    code: str
+    message: str
+    details: list[dict] | None = None
+    request_id: str
+
+@app.exception_handler(ValidationError)
+async def validation_handler(request: Request, exc: ValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "Invalid request data",
+                "details": exc.errors(),
+                "request_id": request.state.request_id
+            }
+        }
+    )
+```
+
+## Pagination
+
+```python
+# Request
+GET /api/v1/users?page=1&per_page=20
+
+# Response
+{
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "per_page": 20,
+    "total": 150,
+    "total_pages": 8
+  }
+}
+
+# Implémentation
+class PaginatedResponse(BaseModel, Generic[T]):
+    data: list[T]
+    pagination: Pagination
+
+class Pagination(BaseModel):
+    page: int
+    per_page: int
+    total: int
+    total_pages: int
+```
+
+## Filtrage et tri
+
+```
+# Filtrage
+GET /api/v1/users?status=active&role=admin
+
+# Tri
+GET /api/v1/users?sort=created_at&order=desc
+
+# Recherche
+GET /api/v1/users?q=john
+```
+
+## Versioning
+
+```python
+# URL versioning (recommandé)
+/api/v1/users
+/api/v2/users
+
+# Router FastAPI
+v1_router = APIRouter(prefix="/api/v1")
+v2_router = APIRouter(prefix="/api/v2")
+```
+
+## Documentation OpenAPI
+
+```python
+@app.post(
+    "/users",
+    response_model=UserResponse,
+    status_code=201,
+    summary="Create a new user",
+    description="Creates a new user account with the provided information.",
+    responses={
+        201: {"description": "User created successfully"},
+        400: {"description": "Invalid input data"},
+        409: {"description": "Email already exists"}
+    }
+)
+async def create_user(user: UserCreate) -> UserResponse:
+    ...
+```
+
+## Checklist API
+
+- [ ] URLs basées sur ressources (pluriel)
+- [ ] Méthodes HTTP appropriées
+- [ ] Codes de retour cohérents
+- [ ] Format d'erreur standardisé
+- [ ] Pagination sur les listes
+- [ ] Versioning de l'API
+- [ ] Documentation OpenAPI complète
+- [ ] Rate limiting configuré

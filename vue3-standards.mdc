@@ -1,0 +1,302 @@
+---
+description: Standards Vue 3 Composition API - composables, Pinia, TypeScript
+globs: "**/*.vue"
+alwaysApply: false
+---
+
+# Standards Vue 3 Composition API
+
+## Structure composant
+
+```vue
+<script setup lang="ts">
+// 1. Imports
+import { ref, computed, watch, onMounted } from 'vue'
+import { useUserStore } from '@/stores/user'
+import type { User } from '@/types'
+
+// 2. Props & Emits
+const props = defineProps<{
+  userId: string
+  showDetails?: boolean
+}>()
+
+const emit = defineEmits<{
+  select: [user: User]
+  close: []
+}>()
+
+// 3. Composables & Stores
+const userStore = useUserStore()
+const { data: user, isLoading } = useUser(props.userId)
+
+// 4. Reactive state
+const isExpanded = ref(false)
+const searchQuery = ref('')
+
+// 5. Computed
+const filteredItems = computed(() =>
+  items.value.filter(item =>
+    item.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+  )
+)
+
+// 6. Watchers
+watch(() => props.userId, (newId) => {
+  fetchUserDetails(newId)
+})
+
+// 7. Lifecycle
+onMounted(() => {
+  initializeComponent()
+})
+
+// 8. Methods
+function handleSelect(user: User) {
+  emit('select', user)
+}
+</script>
+
+<template>
+  <div class="user-card">
+    <!-- Template content -->
+  </div>
+</template>
+
+<style scoped>
+/* Styles scopés */
+</style>
+```
+
+## Structure projet
+
+```
+src/
+├── components/
+│   ├── ui/              # Composants UI génériques
+│   │   ├── Button.vue
+│   │   ├── Card.vue
+│   │   └── Modal.vue
+│   └── features/        # Composants métier
+│       └── user/
+│           ├── UserCard.vue
+│           └── UserList.vue
+├── composables/         # Logique réutilisable
+│   ├── useAuth.ts
+│   ├── useFetch.ts
+│   └── useForm.ts
+├── stores/              # Pinia stores
+│   ├── user.ts
+│   └── app.ts
+├── views/               # Pages
+├── types/               # Types TypeScript
+├── utils/               # Helpers
+└── router/              # Vue Router config
+```
+
+## Composables (hooks)
+
+```typescript
+// composables/useUser.ts
+import { ref, computed, watch } from 'vue'
+import type { Ref } from 'vue'
+import type { User } from '@/types'
+import { api } from '@/lib/api'
+
+export function useUser(userId: Ref<string> | string) {
+  const user = ref<User | null>(null)
+  const isLoading = ref(true)
+  const error = ref<Error | null>(null)
+
+  const userIdRef = computed(() =>
+    typeof userId === 'string' ? userId : userId.value
+  )
+
+  async function fetchUser() {
+    try {
+      isLoading.value = true
+      error.value = null
+      user.value = await api.getUser(userIdRef.value)
+    } catch (e) {
+      error.value = e as Error
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  watch(userIdRef, fetchUser, { immediate: true })
+
+  return {
+    user: computed(() => user.value),
+    isLoading: computed(() => isLoading.value),
+    error: computed(() => error.value),
+    refetch: fetchUser,
+  }
+}
+```
+
+## Pinia Store
+
+```typescript
+// stores/user.ts
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import type { User } from '@/types'
+import { api } from '@/lib/api'
+
+export const useUserStore = defineStore('user', () => {
+  // State
+  const currentUser = ref<User | null>(null)
+  const isAuthenticated = ref(false)
+
+  // Getters
+  const fullName = computed(() =>
+    currentUser.value
+      ? `${currentUser.value.firstName} ${currentUser.value.lastName}`
+      : ''
+  )
+
+  const isAdmin = computed(() =>
+    currentUser.value?.role === 'admin'
+  )
+
+  // Actions
+  async function login(email: string, password: string) {
+    const response = await api.login({ email, password })
+    currentUser.value = response.user
+    isAuthenticated.value = true
+    localStorage.setItem('token', response.token)
+  }
+
+  function logout() {
+    currentUser.value = null
+    isAuthenticated.value = false
+    localStorage.removeItem('token')
+  }
+
+  async function fetchCurrentUser() {
+    try {
+      currentUser.value = await api.getCurrentUser()
+      isAuthenticated.value = true
+    } catch {
+      logout()
+    }
+  }
+
+  return {
+    // State
+    currentUser,
+    isAuthenticated,
+    // Getters
+    fullName,
+    isAdmin,
+    // Actions
+    login,
+    logout,
+    fetchCurrentUser,
+  }
+})
+```
+
+## Props avec defaults
+
+```typescript
+// Props avec valeurs par défaut
+interface Props {
+  title: string
+  variant?: 'primary' | 'secondary' | 'danger'
+  size?: 'sm' | 'md' | 'lg'
+  disabled?: boolean
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  variant: 'primary',
+  size: 'md',
+  disabled: false,
+})
+```
+
+## v-model personnalisé
+
+```vue
+<!-- Parent -->
+<SearchInput v-model="searchQuery" v-model:filters="activeFilters" />
+
+<!-- SearchInput.vue -->
+<script setup lang="ts">
+const modelValue = defineModel<string>({ required: true })
+const filters = defineModel<string[]>('filters', { default: () => [] })
+
+function updateSearch(value: string) {
+  modelValue.value = value
+}
+</script>
+```
+
+## Provide / Inject typé
+
+```typescript
+// types/injection-keys.ts
+import type { InjectionKey, Ref } from 'vue'
+import type { User } from './user'
+
+export const UserKey: InjectionKey<Ref<User | null>> = Symbol('user')
+export const ThemeKey: InjectionKey<Ref<'light' | 'dark'>> = Symbol('theme')
+
+// Parent component
+import { provide, ref } from 'vue'
+import { UserKey } from '@/types/injection-keys'
+
+const currentUser = ref<User | null>(null)
+provide(UserKey, currentUser)
+
+// Child component
+import { inject } from 'vue'
+import { UserKey } from '@/types/injection-keys'
+
+const user = inject(UserKey)
+if (!user) throw new Error('User not provided')
+```
+
+## Template patterns
+
+```vue
+<template>
+  <!-- ✅ v-if avant v-for -->
+  <template v-if="items.length">
+    <div v-for="item in items" :key="item.id">
+      {{ item.name }}
+    </div>
+  </template>
+  <EmptyState v-else />
+
+  <!-- ✅ Slots avec fallback -->
+  <slot name="header">
+    <DefaultHeader />
+  </slot>
+
+  <!-- ✅ Scoped slots -->
+  <slot name="item" :item="item" :index="index">
+    {{ item.name }}
+  </slot>
+
+  <!-- ✅ Teleport pour modals -->
+  <Teleport to="body">
+    <Modal v-if="showModal" @close="showModal = false">
+      <template #header>Modal Title</template>
+      <template #default>Modal content</template>
+    </Modal>
+  </Teleport>
+</template>
+```
+
+## Checklist Vue 3
+
+- [ ] `<script setup lang="ts">` systématique
+- [ ] Props et emits typés avec generics
+- [ ] Composables pour logique réutilisable
+- [ ] Pinia pour state global
+- [ ] `computed()` pour valeurs dérivées
+- [ ] Keys uniques sur v-for
+- [ ] v-if avant v-for (performance)
+- [ ] Cleanup dans onUnmounted si nécessaire

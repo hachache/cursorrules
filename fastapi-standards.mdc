@@ -1,0 +1,275 @@
+---
+description: Standards FastAPI - API moderne Python, async, validation
+globs: "**/api/**/*.py,**/routers/**/*.py,**/app/**/*.py"
+alwaysApply: false
+---
+
+# Standards FastAPI
+
+## Structure projet
+
+```
+app/
+├── main.py                 # Entry point
+├── config.py               # Settings (pydantic-settings)
+├── dependencies.py         # Dependency injection
+├── routers/
+│   ├── __init__.py
+│   ├── users.py
+│   └── posts.py
+├── models/                 # SQLAlchemy models
+│   ├── __init__.py
+│   └── user.py
+├── schemas/                # Pydantic schemas
+│   ├── __init__.py
+│   └── user.py
+├── services/               # Business logic
+│   └── user_service.py
+├── repositories/           # Data access
+│   └── user_repository.py
+└── core/
+    ├── security.py
+    └── exceptions.py
+```
+
+## Application setup
+
+```python
+# main.py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+
+from app.config import settings
+from app.routers import users, posts
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await init_db()
+    yield
+    # Shutdown
+    await close_db()
+
+app = FastAPI(
+    title=settings.app_name,
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Routers
+app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(posts.router, prefix="/api/posts", tags=["posts"])
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+```
+
+## Schemas Pydantic
+
+```python
+# schemas/user.py
+from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
+
+class UserBase(BaseModel):
+    email: EmailStr
+    name: str = Field(..., min_length=2, max_length=100)
+
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=8)
+
+class UserUpdate(BaseModel):
+    email: EmailStr | None = None
+    name: str | None = Field(None, min_length=2, max_length=100)
+
+class UserResponse(UserBase):
+    id: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+class UserListResponse(BaseModel):
+    data: list[UserResponse]
+    total: int
+    page: int
+    per_page: int
+```
+
+## Routers
+
+```python
+# routers/users.py
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.dependencies import get_db, get_current_user
+from app.schemas.user import UserCreate, UserResponse, UserListResponse
+from app.services.user_service import UserService
+
+router = APIRouter()
+
+@router.get("", response_model=UserListResponse)
+async def list_users(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    service = UserService(db)
+    users, total = await service.list(page=page, per_page=per_page)
+    return UserListResponse(
+        data=users,
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    service = UserService(db)
+    user = await service.get_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    return user
+
+@router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    user_data: UserCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    service = UserService(db)
+    return await service.create(user_data)
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = UserService(db)
+    await service.delete(user_id)
+```
+
+## Dependency Injection
+
+```python
+# dependencies.py
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import async_session
+from app.core.security import verify_token
+
+security = HTTPBearer()
+
+async def get_db() -> AsyncSession:
+    async with async_session() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    token = credentials.credentials
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    user = await db.get(User, payload["sub"])
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+    return user
+```
+
+## Error handling
+
+```python
+# core/exceptions.py
+from fastapi import HTTPException, status
+
+class NotFoundError(HTTPException):
+    def __init__(self, detail: str = "Resource not found"):
+        super().__init__(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+class BadRequestError(HTTPException):
+    def __init__(self, detail: str = "Bad request"):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+class UnauthorizedError(HTTPException):
+    def __init__(self, detail: str = "Unauthorized"):
+        super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+# Usage
+from app.core.exceptions import NotFoundError
+
+async def get_user(user_id: str):
+    user = await db.get(User, user_id)
+    if not user:
+        raise NotFoundError(f"User {user_id} not found")
+    return user
+```
+
+## Configuration
+
+```python
+# config.py
+from pydantic_settings import BaseSettings
+from functools import lru_cache
+
+class Settings(BaseSettings):
+    app_name: str = "My API"
+    debug: bool = False
+    database_url: str
+    jwt_secret: str
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 30
+    cors_origins: list[str] = ["http://localhost:3000"]
+
+    model_config = {"env_file": ".env"}
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+settings = get_settings()
+```
+
+## Checklist FastAPI
+
+- [ ] Schemas Pydantic pour validation
+- [ ] Dependency injection pour DB et auth
+- [ ] Routers organisés par domaine
+- [ ] Status codes HTTP appropriés
+- [ ] Error handling centralisé
+- [ ] Configuration avec pydantic-settings
+- [ ] CORS configuré
+- [ ] Documentation OpenAPI automatique

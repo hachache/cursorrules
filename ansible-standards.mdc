@@ -1,0 +1,244 @@
+---
+description: Standards Ansible - playbooks, roles, idempotence, sécurité
+globs: "**/playbooks/**,**/roles/**,**/inventory/**,**/group_vars/**,**/host_vars/**"
+alwaysApply: false
+---
+
+# Standards Ansible
+
+## Principes fondamentaux
+
+- **Idempotence** : chaque run produit le même état
+- **Déclaratif** : décrire l'état souhaité, pas les étapes
+- **Lisible** : YAML clair et documenté
+
+## Structure projet
+
+```
+ansible/
+├── ansible.cfg
+├── requirements.yml          # Collections et rôles externes
+├── inventory/
+│   ├── production/
+│   │   ├── hosts.yml
+│   │   ├── group_vars/
+│   │   │   ├── all/
+│   │   │   │   ├── vars.yml
+│   │   │   │   └── vault.yml  # Chiffré
+│   │   │   └── webservers.yml
+│   │   └── host_vars/
+│   └── staging/
+├── playbooks/
+│   ├── site.yml              # Master playbook
+│   ├── webservers.yml
+│   └── databases.yml
+└── roles/
+    └── myapp/
+        ├── defaults/main.yml  # Variables par défaut
+        ├── vars/main.yml      # Variables internes
+        ├── tasks/main.yml
+        ├── handlers/main.yml
+        ├── templates/
+        ├── files/
+        └── meta/main.yml      # Dépendances
+```
+
+## FQCN obligatoire (Fully Qualified Collection Name)
+
+```yaml
+# ❌ MAUVAIS - module non qualifié
+- name: Install package
+  apt:
+    name: nginx
+
+# ✅ BON - FQCN
+- name: Install nginx web server
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+```
+
+## Nommage des tasks
+
+```yaml
+# ❌ MAUVAIS
+- name: config
+- name: do stuff
+- name: nginx
+
+# ✅ BON - Verbe + description claire
+- name: Deploy nginx configuration file
+- name: Create application directory structure
+- name: Ensure nginx service is running and enabled
+```
+
+## Template de rôle
+
+```yaml
+# roles/myapp/tasks/main.yml
+---
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ ansible_os_family | lower }}.yml"
+
+- name: Install required packages
+  ansible.builtin.package:
+    name: "{{ myapp_packages }}"
+    state: present
+  become: true
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ myapp_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ myapp_home }}"
+    create_home: true
+  become: true
+
+- name: Deploy application configuration
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ myapp_config_path }}"
+    owner: "{{ myapp_user }}"
+    group: "{{ myapp_group }}"
+    mode: "0640"
+    validate: "{{ myapp_binary }} validate --config %s"
+  become: true
+  notify: Restart myapp service
+
+- name: Ensure service is running
+  ansible.builtin.systemd:
+    name: "{{ myapp_service_name }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+```
+
+## Defaults documentés
+
+```yaml
+# roles/myapp/defaults/main.yml
+---
+# Application settings
+myapp_version: "1.0.0"
+myapp_user: "myapp"
+myapp_group: "myapp"
+myapp_home: "/opt/myapp"
+myapp_config_path: "/etc/myapp/config.yml"
+
+# Service configuration
+myapp_service_name: "myapp"
+myapp_port: 8080
+myapp_log_level: "info"
+
+# Resource limits
+myapp_memory_limit: "512M"
+myapp_cpu_limit: "1.0"
+```
+
+## Handlers
+
+```yaml
+# roles/myapp/handlers/main.yml
+---
+- name: Restart myapp service
+  ansible.builtin.systemd:
+    name: "{{ myapp_service_name }}"
+    state: restarted
+    daemon_reload: true
+  become: true
+
+- name: Reload myapp service
+  ansible.builtin.systemd:
+    name: "{{ myapp_service_name }}"
+    state: reloaded
+  become: true
+```
+
+## Ansible Vault
+
+```bash
+# Créer un fichier vault
+ansible-vault create group_vars/all/vault.yml
+
+# Éditer
+ansible-vault edit group_vars/all/vault.yml
+
+# Exécuter avec vault
+ansible-playbook site.yml --ask-vault-pass
+ansible-playbook site.yml --vault-password-file ~/.vault_pass
+```
+
+```yaml
+# group_vars/all/vault.yml (chiffré)
+vault_db_password: "supersecret"
+vault_api_key: "sk-12345"
+
+# group_vars/all/vars.yml (référence le vault)
+db_password: "{{ vault_db_password }}"
+api_key: "{{ vault_api_key }}"
+```
+
+## Tags pour exécution sélective
+
+```yaml
+- name: Deploy web application
+  ansible.builtin.import_role:
+    name: webapp
+  tags:
+    - webapp
+    - deploy
+    - application
+
+- name: Configure monitoring
+  ansible.builtin.import_role:
+    name: monitoring
+  tags:
+    - monitoring
+    - observability
+    - never  # Seulement si explicitement demandé
+```
+
+```bash
+# Exécuter certains tags
+ansible-playbook site.yml --tags "webapp,deploy"
+
+# Exclure des tags
+ansible-playbook site.yml --skip-tags "slow,monitoring"
+
+# Lister les tags
+ansible-playbook site.yml --list-tags
+```
+
+## Check mode et diff
+
+```yaml
+# Supporter check mode (dry-run)
+- name: Get current version
+  ansible.builtin.command: app --version
+  register: current_version
+  changed_when: false  # Ne marque jamais changed
+  check_mode: false    # S'exécute même en check mode
+
+# Afficher les différences
+- name: Deploy config
+  ansible.builtin.template:
+    src: config.j2
+    dest: /etc/app/config
+  diff: true  # Montre le diff
+```
+
+## Checklist Ansible
+
+- [ ] FQCN pour tous les modules
+- [ ] Noms de tasks descriptifs (verbe + objet)
+- [ ] Permissions explicites (owner, group, mode)
+- [ ] Variables dans defaults avec valeurs par défaut
+- [ ] Secrets dans Ansible Vault
+- [ ] Handlers pour redémarrage services
+- [ ] Tags pour exécution granulaire
+- [ ] Support du check mode
+- [ ] become: true explicite (pas global)

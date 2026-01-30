@@ -1,0 +1,221 @@
+---
+description: Standards bases de données - Prisma, SQLAlchemy, SQL, migrations
+globs: "**/*.prisma,**/migrations/**,**/models/**/*.py,**/db/**/*"
+alwaysApply: false
+---
+
+# Standards Bases de Données
+
+## Principes généraux
+
+- **Normalisation** : éviter la redondance (3NF minimum)
+- **Indexes** : sur les colonnes WHERE, JOIN, ORDER BY fréquentes
+- **Contraintes** : NOT NULL, UNIQUE, FK au niveau DB
+- **Nommage** : snake_case, tables au pluriel, colonnes explicites
+
+## Prisma (TypeScript)
+
+### Schema
+
+```prisma
+// schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role     @default(USER)
+  posts     Post[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+  @@index([email])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String   @map("author_id")
+  tags      Tag[]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("posts")
+  @@index([authorId])
+  @@index([published, createdAt])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+```
+
+### Queries optimisées
+
+```typescript
+// ✅ Select uniquement les champs nécessaires
+const users = await prisma.user.findMany({
+  select: {
+    id: true,
+    name: true,
+    email: true,
+  },
+});
+
+// ✅ Include pour relations (évite N+1)
+const usersWithPosts = await prisma.user.findMany({
+  include: {
+    posts: {
+      where: { published: true },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+    },
+  },
+});
+
+// ✅ Transactions
+const [user, post] = await prisma.$transaction([
+  prisma.user.create({ data: userData }),
+  prisma.post.create({ data: postData }),
+]);
+
+// ✅ Pagination cursor-based (performant)
+const posts = await prisma.post.findMany({
+  take: 10,
+  skip: 1,
+  cursor: { id: lastPostId },
+  orderBy: { createdAt: 'desc' },
+});
+```
+
+## SQLAlchemy (Python)
+
+### Models
+
+```python
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime, Index
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=generate_cuid)
+    email = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
+
+    posts = relationship("Post", back_populates="author", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("idx_users_email", "email"),
+    )
+
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(String, primary_key=True, default=generate_cuid)
+    title = Column(String, nullable=False)
+    content = Column(String)
+    published = Column(Boolean, default=False)
+    author_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+    author = relationship("User", back_populates="posts")
+
+    __table_args__ = (
+        Index("idx_posts_author", "author_id"),
+        Index("idx_posts_published_date", "published", "created_at"),
+    )
+```
+
+### Queries
+
+```python
+# ✅ Eager loading (évite N+1)
+users = session.query(User).options(
+    joinedload(User.posts)
+).all()
+
+# ✅ Select colonnes spécifiques
+from sqlalchemy import select
+
+stmt = select(User.id, User.name, User.email).where(User.is_active == True)
+results = session.execute(stmt).all()
+
+# ✅ Pagination
+def paginate(query, page: int, per_page: int):
+    return query.offset((page - 1) * per_page).limit(per_page).all()
+```
+
+## Migrations
+
+### Commandes Prisma
+
+```bash
+# Créer migration
+npx prisma migrate dev --name add_user_role
+
+# Appliquer en production
+npx prisma migrate deploy
+
+# Reset DB (dev only)
+npx prisma migrate reset
+```
+
+### Commandes Alembic
+
+```bash
+# Créer migration
+alembic revision --autogenerate -m "add user role"
+
+# Appliquer
+alembic upgrade head
+
+# Rollback
+alembic downgrade -1
+```
+
+## SQL Best Practices
+
+```sql
+-- ✅ Index sur colonnes filtrées/triées
+CREATE INDEX idx_posts_published_date ON posts(published, created_at DESC);
+
+-- ✅ Éviter SELECT *
+SELECT id, name, email FROM users WHERE is_active = true;
+
+-- ✅ EXPLAIN pour analyser
+EXPLAIN ANALYZE SELECT * FROM posts WHERE author_id = '123';
+
+-- ✅ Pagination avec LIMIT/OFFSET
+SELECT * FROM posts ORDER BY created_at DESC LIMIT 20 OFFSET 40;
+
+-- ❌ ÉVITER: N+1 queries, SELECT *, LIKE '%term%' sans index
+```
+
+## Checklist DB
+
+- [ ] Indexes sur colonnes de recherche/tri fréquentes
+- [ ] Contraintes FK avec ON DELETE approprié
+- [ ] NOT NULL sur colonnes requises
+- [ ] Migrations versionnées
+- [ ] Pas de N+1 queries (eager loading)
+- [ ] Transactions pour opérations multiples
+- [ ] Connection pooling configuré

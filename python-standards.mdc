@@ -1,0 +1,158 @@
+---
+description: Standards Python - typage strict, tests, patterns modernes
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Standards Python
+
+## Typage obligatoire
+
+```python
+# ❌ MAUVAIS
+def process_data(data):
+    return data.get("value")
+
+# ✅ BON
+def process_data(data: dict[str, Any]) -> str | None:
+    """Extract value from data dictionary."""
+    return data.get("value")
+```
+
+## Pydantic pour validation
+
+```python
+from pydantic import BaseModel, Field, EmailStr
+
+class UserCreate(BaseModel):
+    """User creation request."""
+    email: EmailStr
+    name: str = Field(..., min_length=2, max_length=100)
+    age: int = Field(..., ge=0, le=150)
+
+    model_config = {"str_strip_whitespace": True}
+
+class UserResponse(BaseModel):
+    """User response with computed fields."""
+    id: str
+    email: EmailStr
+    name: str
+    created_at: datetime
+```
+
+## Structure des fichiers
+
+```
+src/
+  models/         # Pydantic models (schemas)
+  services/       # Business logic (pure functions)
+  repositories/   # Data access layer
+  api/            # Routes/handlers (thin layer)
+  core/           # Config, dependencies, exceptions
+tests/
+  unit/           # Tests unitaires isolés
+  integration/    # Tests avec dépendances
+  conftest.py     # Fixtures partagées
+```
+
+## Gestion des erreurs
+
+```python
+# Custom exceptions avec contexte
+class ServiceError(Exception):
+    """Base exception for service layer."""
+    def __init__(self, message: str, context: dict | None = None):
+        super().__init__(message)
+        self.context = context or {}
+
+class NotFoundError(ServiceError):
+    """Resource not found."""
+    pass
+
+# Usage
+try:
+    result = await fetch_remote_data(endpoint)
+except httpx.RequestError as error:
+    logger.error("Failed to fetch data", extra={
+        "endpoint": endpoint,
+        "error": str(error)
+    })
+    raise ServiceError(
+        f"Unable to retrieve {endpoint}",
+        context={"endpoint": endpoint, "cause": str(error)}
+    ) from error
+```
+
+## Async patterns
+
+```python
+# ✅ Concurrent calls
+async def get_user_with_orders(user_id: str) -> UserWithOrders:
+    user, orders = await asyncio.gather(
+        user_service.get(user_id),
+        order_service.list_by_user(user_id)
+    )
+    return UserWithOrders(user=user, orders=orders)
+
+# ✅ Context manager pour resources
+async with httpx.AsyncClient() as client:
+    response = await client.get(url)
+```
+
+## Dependency Injection
+
+```python
+# ✅ Injection via paramètres
+class UserService:
+    def __init__(self, repository: UserRepository):
+        self._repository = repository
+
+    async def get(self, user_id: str) -> User:
+        return await self._repository.find_by_id(user_id)
+
+# FastAPI dependency
+def get_user_service(
+    db: AsyncSession = Depends(get_db)
+) -> UserService:
+    return UserService(UserRepository(db))
+```
+
+## Tests avec pytest
+
+```python
+import pytest
+from unittest.mock import AsyncMock
+
+@pytest.fixture
+def mock_repository() -> AsyncMock:
+    return AsyncMock(spec=UserRepository)
+
+@pytest.fixture
+def user_service(mock_repository: AsyncMock) -> UserService:
+    return UserService(mock_repository)
+
+async def test_get_user_returns_user(
+    user_service: UserService,
+    mock_repository: AsyncMock
+) -> None:
+    """Should return user when found."""
+    expected = User(id="123", name="John")
+    mock_repository.find_by_id.return_value = expected
+
+    result = await user_service.get("123")
+
+    assert result == expected
+    mock_repository.find_by_id.assert_called_once_with("123")
+```
+
+## Style
+
+| Élément | Convention |
+|---------|------------|
+| Variables/fonctions | snake_case |
+| Classes | PascalCase |
+| Constantes | SCREAMING_SNAKE_CASE |
+| Fichiers | snake_case.py |
+| Docstrings | PEP 257, Google style |
+| Formatage | Ruff |
+| Import order | isort (stdlib → third-party → local) |

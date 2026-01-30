@@ -1,0 +1,248 @@
+---
+description: Standards Next.js 14+ - App Router, Server Components, Data Fetching
+globs: "**/app/**/*.{ts,tsx},**/pages/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Standards Next.js 14+
+
+## Architecture App Router
+
+### Structure
+
+```
+app/
+├── layout.tsx              # Root layout
+├── page.tsx                # Home page
+├── loading.tsx             # Loading UI
+├── error.tsx               # Error boundary
+├── not-found.tsx           # 404 page
+├── (auth)/                 # Route group (pas dans URL)
+│   ├── login/page.tsx
+│   └── register/page.tsx
+├── dashboard/
+│   ├── layout.tsx          # Dashboard layout
+│   ├── page.tsx
+│   └── settings/page.tsx
+└── api/
+    └── users/route.ts      # API Route
+```
+
+## Server vs Client Components
+
+```tsx
+// ✅ Server Component (défaut) - pas de directive
+async function UserList() {
+  const users = await db.user.findMany(); // Fetch côté serveur
+
+  return (
+    <ul>
+      {users.map(user => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  );
+}
+
+// ✅ Client Component - interactivité
+"use client";
+
+import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      Count: {count}
+    </button>
+  );
+}
+```
+
+### Quand utiliser "use client"
+
+| Server Component | Client Component |
+|-----------------|------------------|
+| Fetch data | useState, useEffect |
+| Accès backend direct | Event handlers (onClick) |
+| Tokens/secrets | Browser APIs |
+| Pas d'interactivité | Hooks React |
+
+## Data Fetching
+
+### Server Components
+
+```tsx
+// ✅ Fetch dans Server Component
+async function ProductPage({ params }: { params: { id: string } }) {
+  const product = await fetch(`https://api.example.com/products/${params.id}`, {
+    next: { revalidate: 3600 } // ISR: revalider toutes les heures
+  }).then(res => res.json());
+
+  return <ProductDetails product={product} />;
+}
+
+// ✅ Parallel data fetching
+async function Dashboard() {
+  const [user, posts, analytics] = await Promise.all([
+    getUser(),
+    getPosts(),
+    getAnalytics(),
+  ]);
+
+  return (
+    <>
+      <UserProfile user={user} />
+      <PostList posts={posts} />
+      <Analytics data={analytics} />
+    </>
+  );
+}
+```
+
+### Caching strategies
+
+```tsx
+// Pas de cache (toujours fresh)
+fetch(url, { cache: 'no-store' });
+
+// Cache indéfini (statique)
+fetch(url, { cache: 'force-cache' });
+
+// Revalidation time-based (ISR)
+fetch(url, { next: { revalidate: 60 } });
+
+// Revalidation on-demand
+import { revalidatePath, revalidateTag } from 'next/cache';
+revalidatePath('/products');
+revalidateTag('products');
+```
+
+## Server Actions
+
+```tsx
+// app/actions.ts
+"use server";
+
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const CreatePostSchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string().min(1),
+});
+
+export async function createPost(formData: FormData) {
+  const validated = CreatePostSchema.parse({
+    title: formData.get('title'),
+    content: formData.get('content'),
+  });
+
+  await db.post.create({ data: validated });
+  revalidatePath('/posts');
+}
+
+// Composant
+export function CreatePostForm() {
+  return (
+    <form action={createPost}>
+      <input name="title" required />
+      <textarea name="content" required />
+      <button type="submit">Create</button>
+    </form>
+  );
+}
+```
+
+## Loading & Error States
+
+```tsx
+// app/dashboard/loading.tsx
+export default function Loading() {
+  return <DashboardSkeleton />;
+}
+
+// app/dashboard/error.tsx
+"use client";
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error;
+  reset: () => void;
+}) {
+  return (
+    <div>
+      <h2>Something went wrong!</h2>
+      <button onClick={() => reset()}>Try again</button>
+    </div>
+  );
+}
+```
+
+## Metadata & SEO
+
+```tsx
+// Static metadata
+export const metadata = {
+  title: 'My App',
+  description: 'Description',
+};
+
+// Dynamic metadata
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const product = await getProduct(params.id);
+
+  return {
+    title: product.name,
+    description: product.description,
+    openGraph: {
+      images: [product.image],
+    },
+  };
+}
+```
+
+## API Routes
+
+```tsx
+// app/api/users/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function GET(request: NextRequest) {
+  const users = await db.user.findMany();
+  return NextResponse.json(users);
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const user = await db.user.create({ data: body });
+  return NextResponse.json(user, { status: 201 });
+}
+
+// Route avec paramètre
+// app/api/users/[id]/route.ts
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const user = await db.user.findUnique({ where: { id: params.id } });
+  if (!user) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  return NextResponse.json(user);
+}
+```
+
+## Checklist Next.js
+
+- [ ] Server Components par défaut
+- [ ] "use client" uniquement si interactivité
+- [ ] Parallel data fetching avec Promise.all
+- [ ] Caching strategy appropriée
+- [ ] loading.tsx et error.tsx pour UX
+- [ ] Metadata pour SEO
+- [ ] Server Actions pour mutations
+- [ ] Validation avec Zod

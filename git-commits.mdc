@@ -1,0 +1,134 @@
+---
+description: Git Standards - Conventional Commits + GitFlow Workflow
+alwaysApply: true
+---
+
+# Git Standards
+
+## Conventional Commits
+
+### Format obligatoire
+
+```
+<type>(<scope>): <description>
+
+[body optionnel]
+
+[footer optionnel]
+```
+
+### Types autorisés
+
+| Type | Usage |
+|------|-------|
+| `feat` | Nouvelle fonctionnalité |
+| `fix` | Correction de bug |
+| `docs` | Documentation uniquement |
+| `style` | Formatage (pas de changement de code) |
+| `refactor` | Refactoring sans changement fonctionnel |
+| `perf` | Amélioration de performance |
+| `test` | Ajout ou modification de tests |
+| `chore` | Maintenance, dépendances, CI |
+
+### Exemples
+
+```bash
+# ✅ BON
+feat(auth): add JWT token refresh mechanism
+fix(api): handle null response from external service
+refactor(users): extract validation logic to service
+chore(deps): upgrade ansible to 2.15
+
+# ❌ MAUVAIS
+updated stuff
+fix bug
+WIP
+```
+
+### Breaking Changes
+
+```bash
+feat(api)!: change authentication endpoint response format
+
+BREAKING CHANGE: response now returns user object instead of token string
+```
+
+### Règles commits
+
+- Description en minuscules, sans point final
+- Impératif présent ("add" pas "added")
+- Max 72 caractères pour la première ligne
+- Body pour expliquer le "pourquoi", pas le "quoi"
+
+## GitFlow Workflow
+
+### Branches principales
+
+| Branche | Description |
+|---------|-------------|
+| `main` | Code production, jamais de commit direct |
+| `develop` | Intégration, source des features |
+
+### Branches de support
+
+```
+feature/123-user-auth    → branch from develop, merge to develop
+release/v1.2.0           → branch from develop, merge to main + develop
+hotfix/v1.2.1            → branch from main, merge to main + develop
+```
+
+### Commandes GitFlow
+
+```bash
+# Nouvelle feature
+git checkout develop
+git pull origin develop
+git checkout -b feature/123-description
+
+# Terminer feature
+git checkout develop
+git merge --no-ff feature/123-description
+git branch -d feature/123-description
+
+# Release
+git checkout develop
+git checkout -b release/v1.2.0
+# ... bump version, fixes only
+git checkout main && git merge --no-ff release/v1.2.0
+git tag -a v1.2.0 -m "Release v1.2.0"
+git checkout develop && git merge --no-ff release/v1.2.0
+
+# Hotfix urgent
+git checkout main
+git checkout -b hotfix/v1.2.1
+# ... fix critical bug
+git checkout main && git merge --no-ff hotfix/v1.2.1
+git tag -a v1.2.1 -m "Hotfix v1.2.1"
+git checkout develop && git merge --no-ff hotfix/v1.2.1
+```
+
+## Semantic Versioning
+
+```
+MAJOR.MINOR.PATCH (ex: 2.1.3)
+
+MAJOR → Breaking changes (API incompatible)
+MINOR → Nouvelles features (rétrocompatible)
+PATCH → Bug fixes (rétrocompatible)
+```
+
+## Pull Request Rules
+
+1. Toujours via PR (jamais de push direct sur main/develop)
+2. Minimum 1 approbation requise
+3. CI/CD doit passer
+4. Branche à jour avant merge
+5. Supprimer branche après merge
+
+## Checklist Git
+
+- [ ] Commit message au format Conventional Commits
+- [ ] Branche nommée selon GitFlow
+- [ ] Version bump si release/hotfix
+- [ ] Tag créé après merge sur main
+- [ ] Branche supprimée après merge
