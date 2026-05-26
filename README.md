@@ -29,9 +29,10 @@ cursorrules/
 ```bash
 git clone git@github.com:hachache/cursorrules.git ~/cursorrules
 cd ~/cursorrules
-chmod +x install.sh
+chmod +x install.sh verify.sh uninstall.sh
 ./install.sh                    # défaut : ~/Documents
 ./install.sh ~/projects/mon-app # autre workspace
+DRY_RUN=1 ./install.sh          # dry-run sans rien modifier
 ```
 
 Le script crée des symlinks :
@@ -42,13 +43,30 @@ Le script crée des symlinks :
 | `<workspace>/.cursor/rules/` | `~/cursorrules/rules/` |
 | `<workspace>/AGENTS.md` | `~/cursorrules/AGENTS.md` |
 
+Tout fichier existant non-symlink à la cible est sauvegardé dans `~/.cursor/.cursorrules-backup-<timestamp>/`. Idempotent : relancer le script ne casse rien.
+
+## Vérification
+
+```bash
+./verify.sh                     # par défaut ~/Documents
+./verify.sh ~/projects/mon-app
+```
+
+Sortie attendue : `All checks passed.`
+
+## Désinstallation
+
+```bash
+./uninstall.sh                  # retire uniquement les symlinks pointant vers ce repo
+```
+
 ## Mise à jour
 
 ```bash
 cd ~/cursorrules && git pull
 ```
 
-Les symlinks pointent vers le repo — un `git pull` suffit.
+Les symlinks pointent vers le repo — un `git pull` suffit. Redémarrer Cursor pour recharger les rules.
 
 ## Subagents & modèles
 
@@ -100,16 +118,36 @@ git add rules/ma-rule.mdc && git commit -m "feat(rules): add Go standards" && gi
 
 ## Ajouter un subagent
 
-```bash
-# Dans ~/cursorrules/agents/mon-specialist.md
+Créer `~/cursorrules/agents/mon-specialist.md` :
+
+```markdown
 ---
 name: mon-specialist
 model: gpt-5.5
 description: Expert … Use proactively for …
 ---
+
 # Prompt système…
 ```
 
+Valeurs valides pour `model:` :
+- `composer-2.5` (CLI, terminal, exploration)
+- `gpt-5.5` (code applicatif)
+- `claude-opus-4-7-thinking-xhigh` (infra, sécu, raisonnement)
+- `gemini-3.1-pro` (DA, UX, multimodal)
+- `inherit` (modèle du parent)
+
+Puis : `git add agents/mon-specialist.md && git commit -m "feat(agents): add mon-specialist" && git push`.
+
+## Troubleshooting
+
+| Symptôme | Solution |
+|----------|----------|
+| `AGENTS.md` pas injecté dans le chat | Démarrer le chat avec `@AGENTS.md` ou s'appuyer sur `subagent-routing.mdc` (alwaysApply) |
+| Subagent ignore son `model:` (via Task tool) | Normal — passer `model="…"` explicite dans l'appel Task |
+| Symlinks cassés après déplacement du repo | Relancer `./install.sh` (idempotent) |
+| Vérifier les rules actives en session | Demander à l'agent : « liste tous les `always_applied_workspace_rule` par nom » |
+
 ## Licence
 
-MIT
+MIT — voir [LICENSE](./LICENSE).

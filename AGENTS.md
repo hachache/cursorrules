@@ -32,7 +32,7 @@ Instructions globales Cursor — source canonique : [hachache/cursorrules](https
 
 ~/.cursor/agents/                 # user-level, tous projets
 <workspace>/.cursor/rules/        # project-level rules
-<workspace>/AGENTS.md             # symlink vers ~/cursorrules/AGENTS.md (optionnel)
+<workspace>/AGENTS.md             # symlink vers ~/cursorrules/AGENTS.md
 ```
 
 ## Subagents disponibles
