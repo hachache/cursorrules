@@ -62,7 +62,7 @@ link() {
   fi
 
   run ln -s "$source" "$target"
-  log "linked    $target  ->  $source"
+  [[ "$DRY_RUN" == "1" ]] || log "linked    $target  ->  $source"
 }
 
 log "repo:      $REPO_ROOT"
