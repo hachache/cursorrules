@@ -1,221 +1,115 @@
-# 🎯 Cursor Rules
+# cursorrules
 
-Collection de règles pour [Cursor IDE](https://cursor.sh) - l'éditeur de code augmenté par IA.
+Configuration Cursor portable : **rules**, **subagents**, **AGENTS.md** — une source, n'importe quelle machine.
 
-Ces règles permettent à l'IA de Cursor de suivre automatiquement vos standards de développement, conventions de code, et bonnes pratiques.
+Repo : [github.com/hachache/cursorrules](https://github.com/hachache/cursorrules)
 
-## 📁 Structure
+## Structure
 
 ```
-.cursor/
-└── rules/
-    ├── global-standards.mdc      # Standards généraux (toujours actif)
-    ├── git-commits.mdc           # Conventional Commits + GitFlow
-    ├── typescript-standards.mdc
-    ├── python-standards.mdc
-    ├── react-standards.mdc
-    ├── vue3-standards.mdc
-    ├── nextjs-standards.mdc
-    ├── nodejs-standards.mdc
-    ├── fastapi-standards.mdc
-    ├── testing-standards.mdc
-    ├── database-standards.mdc
-    ├── shell-standards.mdc
-    ├── ansible-standards.mdc
-    ├── infrastructure-standards.mdc
-    ├── security-standards.mdc
-    ├── api-standards.mdc
-    └── tailwind-standards.mdc
+cursorrules/
+├── AGENTS.md                 # Instructions agent (workspace)
+├── install.sh                # Symlinks agents + rules + AGENTS.md
+├── README.md
+├── rules/                    # → <workspace>/.cursor/rules/
+│   ├── global-standards.mdc       (alwaysApply)
+│   ├── security-standards.mdc     (alwaysApply)
+│   ├── gitignore-protection.mdc   (alwaysApply)
+│   ├── subagent-routing.mdc       (alwaysApply — mapping modèles Task tool)
+│   └── …                          (standards par techno, globs)
+└── agents/                   # → ~/.cursor/agents/ (user-level)
+    ├── shell-specialist.md
+    ├── ansible-specialist.md
+    ├── design-specialist.md
+    └── …
 ```
 
-## 🚀 Installation
-
-### Option 1 : Clone dans votre projet
+## Installation (nouvelle machine)
 
 ```bash
-# À la racine de votre projet
-git clone git@github.com:hachache/cursorrules.git .cursor/rules
-```
-
-### Option 2 : Clone global + symlink
-
-```bash
-# Cloner une fois
 git clone git@github.com:hachache/cursorrules.git ~/cursorrules
-
-# Symlink dans chaque projet
-ln -s ~/cursorrules .cursor/rules
+cd ~/cursorrules
+chmod +x install.sh
+./install.sh                    # défaut : ~/Documents
+./install.sh ~/projects/mon-app # autre workspace
 ```
 
-### Option 3 : Copie sélective
+Le script crée des symlinks :
+
+| Cible | Source |
+|-------|--------|
+| `~/.cursor/agents/` | `~/cursorrules/agents/` |
+| `<workspace>/.cursor/rules/` | `~/cursorrules/rules/` |
+| `<workspace>/AGENTS.md` | `~/cursorrules/AGENTS.md` |
+
+## Mise à jour
 
 ```bash
-git clone git@github.com:hachache/cursorrules.git
-cp cursorrules/*.mdc votre-projet/.cursor/rules/
+cd ~/cursorrules && git pull
 ```
 
-## 📖 Comment ça marche
+Les symlinks pointent vers le repo — un `git pull` suffit.
 
-### Format des fichiers (.mdc)
+## Subagents & modèles
 
-Chaque règle utilise un frontmatter YAML :
+| Catégorie | Modèle Task tool | Subagents |
+|-----------|------------------|-----------|
+| Shell, Docker, explore | `composer-2.5-fast` | shell, docker, explore |
+| Infra, sécu | `claude-opus-4-7-thinking-xhigh` | ansible, terraform, aws, security-auditor |
+| Code (Python, React, Vite, Tailwind) | `gpt-5.5-medium` | python, react, vite, tailwind |
+| DA / UX / UI | `gemini-3.1-pro` | design-specialist |
 
-```markdown
+Frontmatter `@subagent` : voir `model:` dans chaque fichier `agents/*.md`.
+
+Règle Task tool (always-on) : `rules/subagent-routing.mdc`.
+
+## Rules — alwaysApply
+
+Ces rules sont injectées à **chaque** session Cursor (mécanisme fiable) :
+
+- `global-standards.mdc` — qualité, SOLID, early returns
+- `security-standards.mdc` — OWASP, secrets, validation
+- `gitignore-protection.mdc` — ne jamais committer `.env`, artefacts IA
+- `subagent-routing.mdc` — mapping modèles + Task tool
+
+Les autres rules s'activent via `globs` (ex. `**/*.py` → python-standards).
+
+## AGENTS.md vs rules
+
+| Fichier | Rôle | Fiabilité injection |
+|---------|------|---------------------|
+| `rules/*.mdc` avec `alwaysApply: true` | Standards code, routing subagents | **Garanti** |
+| `AGENTS.md` | Vue d'ensemble, doc humaine + agent | Variable selon version Cursor |
+
+Si `AGENTS.md` n'est pas injecté : `@AGENTS.md` en début de chat, ou s'appuyer sur `subagent-routing.mdc`.
+
+## Ajouter une rule
+
+```bash
+# Dans ~/cursorrules/rules/
+cat > ma-rule.mdc <<'EOF'
 ---
-description: Description courte de la règle
-globs: "**/*.ts,**/*.tsx"
+description: Ma règle
+globs: "**/*.go"
 alwaysApply: false
 ---
-
-# Titre de la règle
-
-Contenu markdown avec vos standards...
+# Contenu…
+EOF
+git add rules/ma-rule.mdc && git commit -m "feat(rules): add Go standards" && git push
 ```
 
-### Paramètres du frontmatter
+## Ajouter un subagent
 
-| Paramètre | Description |
-|-----------|-------------|
-| `description` | Description affichée dans Cursor |
-| `globs` | Patterns de fichiers qui activent la règle |
-| `alwaysApply` | `true` = toujours actif, `false` = selon globs |
-
-### Exemples de globs
-
-```yaml
-# TypeScript/JavaScript
-globs: "**/*.ts,**/*.tsx,**/*.js,**/*.jsx"
-
-# Python
-globs: "**/*.py"
-
-# Infrastructure
-globs: "**/*.tf,**/ansible/**/*.yml"
-
-# Tests
-globs: "**/*.test.*,**/*.spec.*,**/tests/**/*"
-
-# Tout (toujours actif)
-alwaysApply: true
-```
-
-### Quand les règles s'activent
-
-```
-Vous éditez: src/components/Button.tsx
-
-Règles chargées automatiquement:
-✅ global-standards.mdc     (alwaysApply: true)
-✅ git-commits.mdc          (alwaysApply: true)
-✅ typescript-standards.mdc (globs: **/*.tsx)
-✅ react-standards.mdc      (globs: **/*.tsx)
-❌ python-standards.mdc     (globs: **/*.py - pas de match)
-```
-
-## 🎯 Règles incluses
-
-### Développement
-
-| Fichier | Globs | Description |
-|---------|-------|-------------|
-| `global-standards.mdc` | `alwaysApply` | SOLID, early returns, error handling |
-| `typescript-standards.mdc` | `**/*.ts,**/*.tsx` | Strict mode, generics, utility types |
-| `python-standards.mdc` | `**/*.py` | Pydantic, async, type hints, DI |
-| `react-standards.mdc` | `**/*.tsx,**/*.jsx` | Hooks, React Query, composition |
-| `vue3-standards.mdc` | `**/*.vue` | Composition API, Pinia, composables |
-| `nextjs-standards.mdc` | `**/app/**/*.tsx` | App Router, Server Components |
-| `nodejs-standards.mdc` | `**/server/**/*.ts` | Express, middleware, Zod |
-| `fastapi-standards.mdc` | `**/api/**/*.py` | Schemas, DI, async endpoints |
-
-### Tests & Qualité
-
-| Fichier | Globs | Description |
-|---------|-------|-------------|
-| `testing-standards.mdc` | `**/*.test.*,**/*.spec.*` | Jest, Playwright, pytest |
-| `security-standards.mdc` | `**/auth/**,**/api/**` | OWASP Top 10, validation |
-| `api-standards.mdc` | `**/api/**/*` | REST design, pagination, errors |
-
-### Infrastructure
-
-| Fichier | Globs | Description |
-|---------|-------|-------------|
-| `database-standards.mdc` | `**/*.prisma,**/models/**` | Prisma, SQLAlchemy, migrations |
-| `shell-standards.mdc` | `**/*.sh,**/*.bash` | Bash strict mode, logging |
-| `ansible-standards.mdc` | `**/ansible/**/*.yml` | FQCN, Vault, idempotence |
-| `infrastructure-standards.mdc` | `**/*.tf` | Terraform modules, state |
-
-### Git & Style
-
-| Fichier | Globs | Description |
-|---------|-------|-------------|
-| `git-commits.mdc` | `alwaysApply` | Conventional Commits, GitFlow |
-| `tailwind-standards.mdc` | `**/*.tsx,**/*.vue` | cn() utility, responsive |
-
-## 💡 Créer une nouvelle règle
-
-1. Créer un fichier `.mdc` dans `.cursor/rules/` :
-
-```markdown
+```bash
+# Dans ~/cursorrules/agents/mon-specialist.md
 ---
-description: Standards Kubernetes - manifests et Helm charts
-globs: "**/k8s/**/*.yaml,**/kubernetes/**/*.yaml,**/helm/**/*.yaml"
-alwaysApply: false
+name: mon-specialist
+model: gpt-5.5
+description: Expert … Use proactively for …
 ---
-
-# Standards Kubernetes
-
-## Ressources
-
-- Toujours définir `requests` ET `limits`
-- Labels obligatoires : `app`, `env`, `version`
-
-## Exemple
-
-\`\`\`yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-app
-  labels:
-    app: my-app
-    env: production
-    version: "1.0.0"
-spec:
-  replicas: 3
-  template:
-    spec:
-      containers:
-        - name: app
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
-              memory: "256Mi"
-              cpu: "200m"
-\`\`\`
+# Prompt système…
 ```
 
-2. La règle s'active automatiquement sur les fichiers K8s.
+## Licence
 
-## 🔄 Synchronisation avec Claude Code
-
-Ces règles ont un équivalent pour Claude Code dans [clauderules](https://github.com/hachache/clauderules).
-
-**Différences de format** :
-
-| Cursor (.mdc) | Claude Code (.md) |
-|---------------|-------------------|
-| `globs: "**/*.ts"` | `paths: ["**/*.ts"]` |
-| `alwaysApply: true` | Fichier dans CLAUDE.md |
-| `.cursor/rules/` | `.claude/rules/` |
-
-## 🔗 Liens utiles
-
-- [Documentation Cursor Rules](https://docs.cursor.com/context/rules-for-ai)
-- [Glob Patterns](https://github.com/isaacs/node-glob#glob-primer)
-- [Awesome Cursor Rules](https://github.com/PatrickJS/awesome-cursorrules)
-
-## 📝 License
-
-MIT - Utilisez et adaptez librement ces règles pour vos projets.
+MIT

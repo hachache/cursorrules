@@ -1,6 +1,4 @@
-# OS files
 .DS_Store
-
-# Editor files
 *.swp
 *~
+.agents.bak-*

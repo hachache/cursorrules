@@ -1,0 +1,27 @@
+---
+description: Mapping modèles IA par subagent + règle obligatoire Task tool (model explicite)
+alwaysApply: true
+---
+
+# Subagent routing — RÈGLE OBLIGATOIRE
+
+Quand l'agent principal délègue via le **Task tool** (pas via `@subagent` user), le frontmatter `model:` de `~/.cursor/agents/*.md` est **ignoré**. Sans `model` explicite, le subagent **hérite du parent**.
+
+**Toute délégation Task doit passer le slug exact** selon le type de tâche :
+
+| Type de tâche | Slug Task tool | Subagents |
+|---------------|----------------|-----------|
+| Shell, Docker, CLI, exploration, grep | `composer-2.5-fast` | `shell-specialist`, `docker-specialist`, `explore`, `generalPurpose` |
+| Infra (Ansible, Terraform, AWS), sécu | `claude-opus-4-7-thinking-xhigh` | `ansible-specialist`, `terraform-specialist`, `aws-specialist`, `security-auditor` |
+| Python, React, Vite, Tailwind (code) | `gpt-5.5-medium` | `python-specialist`, `react-specialist`, `vite-specialist`, `tailwind-specialist` |
+| DA, UX/UI, motion, audit visuel | `gemini-3.1-pro` | `design-specialist` |
+
+**Subagents Cursor intégrés** (Settings → Agents) : Explore + Shell → `composer-2.5`
+
+```
+Task(subagent_type="react-specialist", model="gpt-5.5-medium", prompt="...")
+Task(subagent_type="design-specialist", model="gemini-3.1-pro", prompt="...")
+Task(subagent_type="security-auditor", model="claude-opus-4-7-thinking-xhigh", prompt="...")
+```
+
+**Interdit** : déléguer sans `model` si le parent ne correspond pas au mapping.

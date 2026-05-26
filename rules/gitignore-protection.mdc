@@ -1,0 +1,84 @@
+---
+description: Auto-protection des fichiers sensibles et personnels via .gitignore
+alwaysApply: true
+---
+
+# Protection automatique gitignore
+
+Avant tout commit ou création de fichier, vérifier que les patterns ci-dessous sont présents dans le `.gitignore` du projet. Si absents, **les ajouter automatiquement** sans demander.
+
+## Fichiers à ne JAMAIS commiter
+
+### Configuration agents IA (perso)
+```
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.local.md
+.cursor/rules/*.local.mdc
+.aider*
+.codeium/
+```
+
+### Secrets & environnement
+```
+.env
+.env.*
+!.env.example
+!.env.sample
+credentials.json
+secrets.yml
+secrets.yaml
+vault_password*
+.vault_pass
+```
+
+### IDE / OS
+```
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*~
+```
+
+### Builds & caches
+```
+__pycache__/
+*.pyc
+node_modules/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.terraform/
+*.tfstate
+*.tfstate.backup
+```
+
+## Procédure
+
+1. **Avant tout `git add`** : lire le `.gitignore` du projet
+2. **Si manquant** : créer ou compléter le `.gitignore` avec les patterns pertinents au stack détecté
+3. **Si fichier sensible déjà tracké** : alerter l'utilisateur et proposer `git rm --cached <fichier>` avant le commit
+4. **Jamais d'override** : si l'utilisateur force le commit d'un `.env` ou similaire, demander une confirmation explicite
+
+## Détection contextuelle
+
+Adapter la liste selon le projet :
+- **Python** → ajouter `__pycache__/`, `.venv/`, `*.egg-info/`
+- **Node** → ajouter `node_modules/`, `.next/`, `dist/`
+- **Terraform** → ajouter `.terraform/`, `*.tfstate*`, `*.tfvars` (sauf `.example`)
+- **Ansible** → ajouter `*.retry`, `.vault_pass`, `vault_password*`
+- **Docker** → vérifier `.dockerignore` également
+
+## Exemple d'alerte
+
+```
+⚠️  Fichier sensible détecté : .env
+   → Ajouté à .gitignore
+   → Déjà tracké : exécute `git rm --cached .env` avant le prochain commit
+```
