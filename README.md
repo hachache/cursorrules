@@ -73,7 +73,7 @@ Les symlinks pointent vers le repo — un `git pull` suffit. Redémarrer Cursor 
 | Catégorie | Modèle Task tool | Subagents |
 |-----------|------------------|-----------|
 | Shell, Docker, explore | `composer-2.5-fast` | shell, docker, explore |
-| Infra, sécu | `claude-opus-4-7-thinking-xhigh` | ansible, terraform, aws, security-auditor |
+| Infra, sécu | `claude-opus-4-8-thinking-xhigh` | ansible, terraform, aws, security-auditor |
 | Code (Python, React, Vite, Tailwind) | `gpt-5.5-medium` | python, react, vite, tailwind |
 | DA / UX / UI | `gemini-3.1-pro` | design-specialist |
 
@@ -133,7 +133,7 @@ description: Expert … Use proactively for …
 Valeurs valides pour `model:` :
 - `composer-2.5` (CLI, terminal, exploration)
 - `gpt-5.5` (code applicatif)
-- `claude-opus-4-7-thinking-xhigh` (infra, sécu, raisonnement)
+- `claude-opus-4-8-thinking-xhigh` (infra, sécu, raisonnement)
 - `gemini-3.1-pro` (DA, UX, multimodal)
 - `inherit` (modèle du parent)
 

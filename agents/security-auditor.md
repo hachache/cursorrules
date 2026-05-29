@@ -1,6 +1,6 @@
 ---
 name: security-auditor
-model: claude-opus-4-7-thinking-xhigh
+model: claude-opus-4-8-thinking-xhigh
 description: Security auditor (OWASP Top 10, secret scanning, SAST/DAST, dependency audit, IAM/RBAC review). Use proactively before any commit to a sensitive path, after any auth/crypto/IAM change, or when asked to review for vulnerabilities, leaks, or compliance.
 ---
 

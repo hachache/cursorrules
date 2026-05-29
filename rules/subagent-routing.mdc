@@ -12,7 +12,7 @@ Quand l'agent principal délègue via le **Task tool** (pas via `@subagent` user
 | Type de tâche | Slug Task tool | Subagents |
 |---------------|----------------|-----------|
 | Shell, Docker, CLI, exploration, grep | `composer-2.5-fast` | `shell-specialist`, `docker-specialist`, `explore`, `generalPurpose` |
-| Infra (Ansible, Terraform, AWS), sécu | `claude-opus-4-7-thinking-xhigh` | `ansible-specialist`, `terraform-specialist`, `aws-specialist`, `security-auditor` |
+| Infra (Ansible, Terraform, AWS), sécu | `claude-opus-4-8-thinking-xhigh` | `ansible-specialist`, `terraform-specialist`, `aws-specialist`, `security-auditor` |
 | Python, React, Vite, Tailwind (code) | `gpt-5.5-medium` | `python-specialist`, `react-specialist`, `vite-specialist`, `tailwind-specialist` |
 | DA, UX/UI, motion, audit visuel | `gemini-3.1-pro` | `design-specialist` |
 
@@ -21,7 +21,7 @@ Quand l'agent principal délègue via le **Task tool** (pas via `@subagent` user
 ```
 Task(subagent_type="react-specialist", model="gpt-5.5-medium", prompt="...")
 Task(subagent_type="design-specialist", model="gemini-3.1-pro", prompt="...")
-Task(subagent_type="security-auditor", model="claude-opus-4-7-thinking-xhigh", prompt="...")
+Task(subagent_type="security-auditor", model="claude-opus-4-8-thinking-xhigh", prompt="...")
 ```
 
 **Interdit** : déléguer sans `model` si le parent ne correspond pas au mapping.
@@ -34,5 +34,5 @@ Deux contextes utilisent des slugs différents pour le même modèle :
 |--------|-----------------------------------|----------------------------|
 | Composer 2.5 | `composer-2.5` | `composer-2.5-fast` |
 | GPT-5.5 | `gpt-5.5` | `gpt-5.5-medium` |
-| Claude Opus 4.7 | `claude-opus-4-7-thinking-xhigh` | `claude-opus-4-7-thinking-xhigh` |
+| Claude Opus 4.8 | `claude-opus-4-8-thinking-xhigh` | `claude-opus-4-8-thinking-xhigh` |
 | Gemini 3.1 Pro | `gemini-3.1-pro` | `gemini-3.1-pro` |

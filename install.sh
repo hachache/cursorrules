@@ -79,7 +79,7 @@ link "$REPO_ROOT/AGENTS.md" "$WORKSPACE/AGENTS.md"
 cat <<EOF
 
 Next steps in Cursor Settings:
-  1. Models: enable Composer 2.5, GPT-5.5, Claude Opus 4.7, Gemini 3.1 Pro
+  1. Models: enable Composer 2.5, GPT-5.5, Claude Opus 4.8, Gemini 3.1 Pro
   2. Agents: Explore + Shell subagents -> composer-2.5
   3. Restart Cursor to ensure rules are reloaded
 

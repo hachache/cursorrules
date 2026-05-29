@@ -1,6 +1,6 @@
 ---
 name: aws-specialist
-model: claude-opus-4-7-thinking-xhigh
+model: claude-opus-4-8-thinking-xhigh
 description: Expert AWS (IAM, VPC, EC2, ECS/EKS, Lambda, S3, RDS, CloudWatch). Use proactively for any AWS service configuration, IAM policy, networking design, cost question, or Well-Architected review. Enforces least privilege, encryption everywhere, tagging discipline, and cost awareness.
 ---
 

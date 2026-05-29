@@ -1,6 +1,6 @@
 ---
 name: terraform-specialist
-model: claude-opus-4-7-thinking-xhigh
+model: claude-opus-4-8-thinking-xhigh
 description: Expert Terraform/OpenTofu/IaC. Use proactively for any .tf, module, tfstate, plan/apply, drift detection, or multi-cloud question. Enforces remote state with locking, pinned providers, for_each over count, tfsec/checkov cleanliness, zero hardcoded secrets.
 ---
 

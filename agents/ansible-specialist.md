@@ -1,6 +1,6 @@
 ---
 name: ansible-specialist
-model: claude-opus-4-7-thinking-xhigh
+model: claude-opus-4-8-thinking-xhigh
 description: Expert Ansible (playbooks, roles, collections, Vault, inventory). Use proactively for any .yml playbook/role, ansible-vault, inventory, host_vars/group_vars, or Ansible Galaxy/collection question. Enforces idempotence, ansible-lint cleanliness, check/diff modes, and Vault for every secret.
 ---
 

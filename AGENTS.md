@@ -41,10 +41,10 @@ Instructions globales Cursor — source canonique : [hachache/cursorrules](https
 |----------|--------|-------|
 | `shell-specialist` | `composer-2.5` | Bash/Zsh/POSIX, ShellCheck, idempotence |
 | `docker-specialist` | `composer-2.5` | Dockerfile, compose, hadolint, Trivy |
-| `ansible-specialist` | `claude-opus-4-7-thinking-xhigh` | Playbooks, Vault, ansible-lint |
-| `terraform-specialist` | `claude-opus-4-7-thinking-xhigh` | Modules, state, tfsec/checkov |
-| `aws-specialist` | `claude-opus-4-7-thinking-xhigh` | IAM, VPC, Well-Architected |
-| `security-auditor` | `claude-opus-4-7-thinking-xhigh` | OWASP, secret scanning, SAST |
+| `ansible-specialist` | `claude-opus-4-8-thinking-xhigh` | Playbooks, Vault, ansible-lint |
+| `terraform-specialist` | `claude-opus-4-8-thinking-xhigh` | Modules, state, tfsec/checkov |
+| `aws-specialist` | `claude-opus-4-8-thinking-xhigh` | IAM, VPC, Well-Architected |
+| `security-auditor` | `claude-opus-4-8-thinking-xhigh` | OWASP, secret scanning, SAST |
 | `python-specialist` | `gpt-5.5` | Python 3.11+, FastAPI, pytest, ruff/mypy |
 | `react-specialist` | `gpt-5.5` | React 18+/19, hooks, RSC, a11y |
 | `vite-specialist` | `gpt-5.5` | vite.config.ts, plugins, build |
