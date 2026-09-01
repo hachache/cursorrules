@@ -49,7 +49,7 @@ check_link "$WORKSPACE/AGENTS.md"          "$REPO_ROOT/AGENTS.md"
 
 printf '\nContent\n'
 count_glob "$REPO_ROOT/agents/*.md"  "agents/*.md"                       11
-count_glob "$REPO_ROOT/rules/*.mdc"  "rules/*.mdc"                       18
+count_glob "$REPO_ROOT/rules/*.mdc"  "rules/*.mdc"                       19
 
 printf '\nGit\n'
 printf '  %-45s ' "remote"

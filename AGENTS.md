@@ -5,7 +5,8 @@ Instructions globales Cursor — source canonique : [hachache/cursorrules](https
 ## Langue & Communication
 
 - Répondre en **français** sauf si code/commentaires en anglais
-- Messages de commit en **anglais** (Conventional Commits)
+- Messages de commit **toujours** en anglais, format `type(scope): subject` — voir `rules/git-commits.mdc`
+- Exemple : `fix(nginx): block Paybox key, WooCommerce logs and PHP in uploads`
 - Documentation technique : suivre la langue du projet
 
 ## Comportement obligatoire

@@ -89,6 +89,7 @@ Ces rules sont injectées à **chaque** session Cursor (mécanisme fiable) :
 - `security-standards.mdc` — OWASP, secrets, validation
 - `gitignore-protection.mdc` — ne jamais committer `.env`, artefacts IA
 - `subagent-routing.mdc` — mapping modèles + Task tool
+- `git-commits.mdc` — Conventional Commits anglais (`type(scope): subject`)
 
 Les autres rules s'activent via `globs` (ex. `**/*.py` → python-standards).
 

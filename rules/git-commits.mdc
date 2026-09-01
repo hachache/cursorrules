@@ -1,0 +1,48 @@
+---
+description: Format obligatoire des messages de commit — Conventional Commits, anglais
+alwaysApply: true
+---
+
+# Messages de commit
+
+Format unique, **toujours**, y compris si le chat est en français et même si `git log` récent est informel.
+
+```
+type(scope): imperative English subject
+```
+
+## Types
+
+| Type | Quand |
+|---|---|
+| `feat` | nouvelle capacité |
+| `fix` | bug, faille, régression, durcissement sécu |
+| `refactor` | restructuration sans changement de comportement |
+| `chore` | deps, submodules, tooling, housekeeping |
+| `docs` | documentation seule |
+| `perf` | performance |
+| `test` | tests seuls |
+| `ci` | CI / CD |
+
+`scope` : zone touchée, minuscule (`nginx`, `ansible`, `php`, `mysql`, `wp`). Obligatoire dès que le changement est localisable.
+
+## Sujet
+
+- anglais, impératif, minuscule après `:`
+- une ligne, ~72 caractères, **pas de point final**
+- le *pourquoi* / l'effet, pas la liste de fichiers
+- jamais « Cursor », « Agent », ni le nom du modèle
+
+## Exemples
+
+```
+# ✅
+fix(nginx): block Paybox key, WooCommerce logs and PHP in uploads
+feat(wallix): add Bastion enrollment configuration
+chore(ansible): upgrade website collection
+
+# ❌
+Bloquer kek.php, les logs WooCommerce et l'exécution PHP dans les uploads.
+add nginx security locations
+fix terrevivante nginx configuration
+```
